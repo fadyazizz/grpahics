@@ -146,13 +146,17 @@
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="GameObject.cpp" />
     <ClCompile Include="mazeBorder.cpp" />
+    <ClCompile Include="mazeDivider.cpp" />
     <ClCompile Include="player.cpp" />
+    <ClCompile Include="PowerUps.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Engine.h" />
     <ClInclude Include="GameObject.h" />
     <ClInclude Include="mazeBorder.h" />
+    <ClInclude Include="mazeDivider.h" />
     <ClInclude Include="player.h" />
+    <ClInclude Include="PowerUps.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

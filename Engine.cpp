@@ -3,19 +3,13 @@
 #include <vector> 
 #include<Engine.h>
 #include<player.h>
+#include<mazeDivider.h>
+#include <time.h>
+#include<PowerUps.h>
 #include<GL/glut.h>
 using std::vector;
 
-//void drawLanes() {
-//	glColor3f(1.0, 0.0, 0.0);
-//
-//	glBegin(GL_POLYGON);
-//	glVertex2f(10.0, 10.0);
-//	glVertex2f(350.0, 80.0);
-//	glVertex2f(100.0, 20.0);
-//	glVertex2f(200.0, 100.0);
-//	glEnd();
-//}
+
 vector<GameObject*> objectsInScene;
 
 vector<GameObject*> movementSubscription;
@@ -23,26 +17,76 @@ int windowWidth = 540;
 int windowHeight = 520;
 int gameObjectsInScene = 0;
 int mazeBorderSize = (windowWidth - 500) / 2;
-bool up = false;
-bool down = false;
-bool right = false;
-bool left = false;
-int dx = 1;
-int dy = 1;
+int timeSinceStart=0;
+int dx = 0;
+int dy = 0;
+int totalX = 0;
+int totalY = 0;
+bool moveIt=false;
+int elFagwaWidth = 30;
+int dividerheight = 5;
+int timeSinceUpdate = 0;
+int lanesNumber = 5;
+bool speedTaken = false;
+bool bridgeTaken = false;
+void createLanes(int lanesNumber) {
+	int laneHeight = (windowHeight - 2 * mazeBorderSize) / lanesNumber;
+	int fromWhereToWhere = (windowWidth - 2 * mazeBorderSize) - elFagwaWidth;
+
+	for (int i = 0; i < lanesNumber - 1; i++) {
+		int elFagwa = (rand() % fromWhereToWhere) + elFagwaWidth;
+		int dividerY = windowHeight - (laneHeight * (i + 1)) - (1 * mazeBorderSize) + dividerheight;
+		mazeDivider* prt1 = new mazeDivider(mazeBorderSize, elFagwa, dividerY - dividerheight, dividerY);
+		mazeDivider* prt2 = new mazeDivider(elFagwa + elFagwaWidth, windowWidth - mazeBorderSize, dividerY - dividerheight, dividerY);
+		objectsInScene.push_back(prt1);
+		objectsInScene.push_back(prt2);
+
+
+	}
+}
+void createPowerUps(int lanesNumber) {
+	for (int i = 0; i < 2; i++) {
+		std::string type = "";
+		if (i % 2 == 0) {
+			type = "speed";
+		}
+		else {
+			type = "bridge";
+		}
+
+		int laneHeight = (windowHeight - 2 * mazeBorderSize) / lanesNumber;
+		int powerY = rand() % (lanesNumber - 1);
+		int powerX = rand() % (windowWidth - mazeBorderSize-30);
+		powerX = powerX + mazeBorderSize;
+		powerY++;
+		int yPosition = (windowHeight - mazeBorderSize) - (powerY * laneHeight);
+		PowerUps* p= new PowerUps(type, powerX, powerX + 30, yPosition - 30, yPosition);
+		if (i % 2 == 0 && !speedTaken) {
+			objectsInScene.push_back(p);
+		}
+		if (!(i % 2 == 0) && !bridgeTaken) {
+			objectsInScene.push_back(p);
+		
+		}
+	}
+
+	
+
+}
+
 void init(int lanesNumber) {
 	//setting up mazeborders
 	int i;
-	player* pler=new player;
+	player* pler=new player(30,55,480,495);
 	objectsInScene.push_back(pler);
+	srand((unsigned)time(NULL));
 	for ( i = 0; i < 4; i++) {
-		
 		mazeBorder* mB = new mazeBorder(i);
-	
-		//ptr->draw();
-		//std::cout << mB << std::endl;
 		objectsInScene.push_back(mB);
 	}
-
+	createLanes(lanesNumber);
+	createPowerUps(lanesNumber);
+	
 }
 int addMovement(bool moveIt, int value1,int value2) {
 	if (moveIt) {
@@ -52,26 +96,17 @@ int addMovement(bool moveIt, int value1,int value2) {
 }
 
 void collisionEngine() {
-	std::cout << "inCollisionEngine" << std::endl;
 	for (int i = 0; i < movementSubscription.size(); i++) {
 		vector<int> colliderMoveX = movementSubscription.at(i)->collider[0];
 		vector<int> colliderMoveY = movementSubscription.at(i)->collider[1];
-
-		int maxXMover = colliderMoveX.at(1);
-		maxXMover= addMovement(right, maxXMover, 1);
-		maxXMover = addMovement(left, maxXMover, -1);
-		int minXMover = colliderMoveX.at(0);
-		minXMover= addMovement(right, minXMover, 1);
-		minXMover = addMovement(left, minXMover, -1);
-		int maxYMover = colliderMoveY.at(1);
-		maxYMover = addMovement(up, maxYMover, 1);
-		maxYMover = addMovement(down, maxYMover, -1);
-		int minYMover = colliderMoveY.at(0);
-		minYMover = addMovement(up, minYMover, 1);
-		minYMover = addMovement(down, minYMover, -1);
+		GameObject* mover = movementSubscription.at(i);
+		int maxXMover = mover->maxX+dx;
+		int minXMover = mover->minX+dx;
+		int maxYMover = mover->maxY+dy;
+		int minYMover = mover->minY+dy;
 		bool collid = false;
 		for (int j = 0; j < objectsInScene.size(); j++) {
-			if (objectsInScene.at(i)->tag == movementSubscription.at(i)->tag) {
+			if (objectsInScene.at(j)->tag == movementSubscription.at(i)->tag) {
 				continue;
 			}
 			vector<int> colliderSceneX = objectsInScene.at(j)->collider[0];
@@ -80,79 +115,122 @@ void collisionEngine() {
 			int minXScene = colliderSceneX.at(0);
 			int maxYScene = colliderSceneY.at(1);
 			int minYScene = colliderSceneY.at(0);
-			if ((maxXMover > minXScene && maxXMover < maxXScene) || (maxXScene > minXMover && maxXScene < maxXMover)) {
-				if ((maxYMover > minYScene && maxYMover < maxYScene) || (maxYScene > minYMover && maxYScene < maxYMover)) {
-					collid = true;
+			if (((maxXMover >=minXScene && maxXMover <= maxXScene) || (maxXScene >= minXMover && maxXScene <= maxXMover))) {
+				if (((maxYMover >= minYScene && maxYMover <= maxYScene) || (maxYScene >= minYMover && maxYScene <= maxYMover))) {
+					std::cout << "Collision!" << std::endl;
+					if (objectsInScene.at(j)->isTrigger) {
+						
+						mover->handleTriggerEvent(objectsInScene.at(j), j);
+						objectsInScene.erase(objectsInScene.begin()+ j);
+					}
+					else {
+						collid = true;
+					}
+					
 				}
 			}
 		
 		}
-		if (collid) {
-			movementSubscription.at(i)->canMove = false;
+		if (!collid) {
+			objectsInScene.at(i)->move(dx, dy,totalX,totalY);
 		}
-		else {
-			movementSubscription.at(i)->canMove = true;
-		}
+		
 
 	}
 	
 }
-void physicsEngine(int x) {
-	if (movementSubscription.size() != 0) {
-		collisionEngine();
-		movementSubscription.clear();
+void changeElFagwa() {
+	int dividerCount = 0;
+	int startIndex = 0;
+	bool Entered = false;
+
+	for (int i = 0; i < objectsInScene.size(); i++) {
+		if (objectsInScene.at(i)->tag == "mazeDivider") {
+			dividerCount++;
+			if (!Entered) {
+				Entered = true;
+				startIndex = i;
+			}
+			
+		}
 
 	}
-	glutPostRedisplay();
+	objectsInScene.erase(objectsInScene.begin() + startIndex, objectsInScene.begin() + startIndex + dividerCount);
+	createLanes((dividerCount / 2) + 1);
+}
+void changePowerUps() {
 	
-	glutTimerFunc(100, physicsEngine, 0);
+	
+	int indexFirstPowerUp = -1;
+	int indexSecondPowerUp = -1;
+	bool entered = false;
+	for (int i = 0; i < objectsInScene.size(); i++) {
+		if (objectsInScene.at(i)->tag == "powerUps") {
+			if (!entered) {
+				
+				indexFirstPowerUp = i;
+				objectsInScene.erase(objectsInScene.begin() + indexFirstPowerUp);
+				i--;
+			}
+			else {
+				
+				indexSecondPowerUp = i;
+				objectsInScene.erase(objectsInScene.begin() + indexSecondPowerUp);
+			}
+			
+		}
+	}
+	
+	
+	createPowerUps(lanesNumber);
+}
+void TimedEvents() {
+	if (timeSinceStart - timeSinceUpdate>10000) {
+		changeElFagwa();
+		changePowerUps();
+	timeSinceUpdate = timeSinceStart;
+	}
+}
+void physicsEngine(int x) {
+	if (moveIt) {
+		moveIt = false;
+		collisionEngine();
+	}
+	TimedEvents();
+	glutPostRedisplay();
+	timeSinceStart = timeSinceStart + 1;
+	glutTimerFunc(1, physicsEngine, 0);
 }
 void display() {
 	glClear(GL_COLOR_BUFFER_BIT);
-	//glColor3f(1.0, 0.0, 0.0);
-
 	for (int i = 0; i < objectsInScene.size(); i++) {
-		
-		//std::cout << (objectsInScene.at(i)) <<std::endl ;
 		objectsInScene.at(i)->draw();
-		
 	}
-	//drawLanes();
 	glFlush();
-	dy = 1;
-	dx = 1;
-	up = false;
-	down = false;
-	right = false;
-	left = false;
 }
 
-
-void myinit() {
-	glClearColor(1.0, 1.0, 1.0, 1.0);
-	glColor3f(1.0, 0.0, 0.0);
-	glPointSize(5.0);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	gluOrtho2D(0.0, 499.0, 0.0, 499.0);
-}
 void inputEngine(int key,int x,int y) {
+	dy = 0; dx = 0;
 	if (key == GLUT_KEY_UP) {
-		up = true;
+		totalY--;
+		dy=-2;
 	}
 	if (key == GLUT_KEY_DOWN) {
-		down = true;
-		dy = -1;
+		totalY++;
+		dy = 2; 
 	}
 	if (key == GLUT_KEY_RIGHT) {
-		right = true;
+		totalX++;
+		dx=2;
 		
 	}
 	if (key == GLUT_KEY_LEFT) {
-		left = true;
-		dx = -1;
+		totalX--;
+		dx=-2 ;
 	}
+	moveIt = true;
 }
+
 int main(int argc, char** argv) {
 	//GameObject o;
 	glutInit(&argc, argv);
@@ -160,12 +238,8 @@ int main(int argc, char** argv) {
 	glutInitWindowSize(windowWidth, windowHeight);
 	glutInitWindowPosition(150, 150);
 	glutCreateWindow("Best Game Evaaaaa !!!!!!");
-	init(1);
+	init(lanesNumber);
 	glutDisplayFunc(display);
-	//glutPassiveMotionFunc(passM);	//call the passive motion function
-	//glutMouseFunc(actM);			//call the mouse function + which mouse button is being clicked
-	//glutKeyboardFunc(key);			//call the keyboard function
-	//glutKeyboardUpFunc(keyUp);		//call the keyboard up function
 	glutSpecialFunc(inputEngine);			//call the keyboard special keys function
 	//glutSpecialUpFunc(speUp);		//call the keyboard special keys up function
 	glutTimerFunc(0, physicsEngine, 0);		//call the timer function

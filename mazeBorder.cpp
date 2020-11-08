@@ -9,6 +9,7 @@ float blue = 1.0;
 
 void mazeBorder::draw() {
 	//cout << "helloDraw" << endl;
+
 	switch (this->number)
 	{
 	case 0: {
